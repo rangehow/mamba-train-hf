@@ -10,6 +10,7 @@ import torch
 import os
 import datasets
 from functools import partial
+from peft import LoraConfig,get_peft_model
 
 os.environ["HF_ENDPOINT"] = "https://hf-mirror.com"
 
@@ -73,6 +74,16 @@ if __name__ == "__main__":
     #     print(d)
     #     import pdb
     #     pdb.set_trace()
+    if args.lora:
+        lora_config =  LoraConfig(
+        r=8,
+        target_modules=["x_proj", "in_proj", "out_proj"],
+        task_type="CAUSAL_LM",
+        bias="none",
+        use_rslora=True,
+        )
+        model = get_peft_model(model, lora_config)
+        
     trainer=Trainer(
         model=model,
         tokenizer=tokenizer,
@@ -87,8 +98,11 @@ if __name__ == "__main__":
             remove_unused_columns=True,
             gradient_accumulation_steps=8,
             num_train_epochs=3,
+            dataloader_num_workers=8,
         )
         
     )
     trainer.train()
+    trainer.model.merge_and_unload(safe_merge=True)
+    trainer.save_model('mamba-out')
     
